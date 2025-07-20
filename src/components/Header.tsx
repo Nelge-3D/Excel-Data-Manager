@@ -5,12 +5,14 @@ export default function Header({
   onExport,
   onImport,
   onReset,
+  onSaveToDB,
   onAddRow,
   cacheStatus,
 }: {
   onExport: () => void
   onImport: () => void
   onReset: () => void
+  onSaveToDB: () => void
   onAddRow: () => void
   cacheStatus: "active" | "expired"
 }) {

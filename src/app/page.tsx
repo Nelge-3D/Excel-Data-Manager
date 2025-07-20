@@ -5,7 +5,7 @@ import Header from '@/components/Header'
 import FileDropZone from '@/components/FileDropZone'
 import ExcelTable from '@/components/ExcelTable'
 import { exportToExcel } from "@/app/lib/exportExcel"
-import { saveToCache, loadFromCache, isCacheActive } from "@/app/lib/cache"
+import { saveToCache, loadFromCache } from "@/app/lib/cache"
 
 export default function HomePage() {
   const [data, setData] = useState<any[]>([])
@@ -23,9 +23,40 @@ export default function HomePage() {
   }, [])
 
   function handleData(newData: any[]) {
-    setData(newData)
+    // Convertir les données pour correspondre à notre structure
+    const formattedData = newData.map(row => ({
+      nom: row.Nom || '',
+      email: row.Email || '',
+      telephone: row.Téléphone || '',
+      departement: row.Département || '',
+      salaire: parseFloat(row.Salaire) || 0
+    }))
+    
+    setData(formattedData)
     setCacheStatus("active")
-    saveToCache(newData)
+    saveToCache(formattedData)
+  }
+
+  async function handleSaveToDB() {
+    if (!data.length) return alert("Aucune donnée à enregistrer")
+
+    try {
+      const res = await fetch("/api/employees", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      })
+
+      if (res.ok) {
+        alert("Données enregistrées en base avec succès 🎉")
+      } else {
+        const error = await res.json()
+        alert(`Erreur lors de l'enregistrement: ${error.message || 'Unknown error'}`)
+      }
+    } catch (error) {
+      console.error("Erreur:", error)
+      alert("Erreur réseau lors de l'enregistrement")
+    }
   }
 
   function handleImportClick() {
@@ -41,24 +72,10 @@ export default function HomePage() {
       const binary = event.target?.result
       const workbook = read(binary as string, { type: 'binary' })
       const sheet = workbook.Sheets[workbook.SheetNames[0]]
-      const data = utils.sheet_to_json(sheet)
-      handleData(data as any[])
+      const jsonData = utils.sheet_to_json(sheet)
+      handleData(jsonData)
     }
     reader.readAsBinaryString(file)
-  }
-
-  // Handler to reset the data and cache
-  function handleReset() {
-    setData([])
-    setCacheStatus("expired")
-    saveToCache([])
-  }
-
-  // Handler to add a new empty row
-  function handleAddRow() {
-    setData(prev => [...prev, {}])
-    setCacheStatus("active")
-    saveToCache([...data, {}])
   }
 
   return (
@@ -66,8 +83,7 @@ export default function HomePage() {
       <Header 
         onExport={() => exportToExcel(data)} 
         onImport={handleImportClick}
-        onReset={handleReset}
-        onAddRow={handleAddRow}
+        onSaveToDB={handleSaveToDB}
         cacheStatus={cacheStatus} 
       />
       <main className="max-w-6xl mx-auto p-6">
